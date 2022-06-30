@@ -9,3 +9,7 @@
     <img [src]="message.iconUrl" alt="message-icon">
   </li>
 </ul>
+
+<button (click)="subscribe()">subscribe</button>
+<button (click)="login()" [disabled]="disableLogin">login</button>
+<button (click)="send()" >send</button>

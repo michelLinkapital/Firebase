@@ -13,6 +13,7 @@ import {mergeMap} from 'rxjs';
 export class AppComponent implements OnInit {
   messages: Array<Message> = [];
   title = 'Firebase';
+  disableLogin = false;
 
   constructor(
     private firebaseService: FirebaseService,
@@ -21,31 +22,65 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.login();
+    this.setFcmToken();
+  }
 
+  login() {
+    this.http.post('http://localhost:8085/api/auth/login', {
+      email: 'admin@gmail.com',
+      password: 'Mn1234567*'
+    })
+      .subscribe(
+        (data: any) => {
+          this.disableLogin = true;
+          localStorage.setItem('token', 'Bearer ' + data['token']);
+
+          if (localStorage.getItem('fcmToken') != null) {
+
+            var options = {
+              headers: this.headers()
+            };
+            const body = {
+              token: localStorage.getItem('fcmToken')
+            };
+            this.http.post('http://localhost:8085/api/fcm', body, options).subscribe();
+          }
+        }
+      )
+  }
+
+  setFcmToken() {
+    this.firebaseService.getFcmToken().subscribe(
+      (token: any) => {
+        localStorage.setItem('fcmToken', token);
+      }
+    )
+  }
+  send() {
+
+    var options = {
+      headers: this.headers()
+    };
+    const body = {
+      token: localStorage.getItem('fcmToken'),
+      userId: 1,
+      message: 'the message',
+      type: 'OFFER_NOTIFICATION',
+      payload: {
+        hello: 'payload'
+      },
+    };
+    this.http.post('http://localhost:8085/api/fcm/notify', body, options).subscribe();
+  }
+
+  subscribe() {
+    console.log('subscribed')
     this.msg.onMessage((payload) => {
       // Get the data about the notification
       let notification = payload.notification;
       // Create a Message object and add it to the array
       this.messages.push({title: notification.title, body: notification.body, iconUrl: notification.icon});
     });
-  }
-
-  login() {
-    this.firebaseService.getFcmToken().pipe(
-      mergeMap((token: any) => {
-        const body = {
-          email: 'client@gmail.com',
-          password: 'Mn1234567*',
-          fcmToken: token
-        };
-          return this.http.post('http://localhost:8085/api/auth/login', body)
-        }
-      ))
-      .subscribe((data: any) => {
-        localStorage.setItem('token', 'Bearer ' + data['token']);
-      });
-
   }
 
   headers(): HttpHeaders {
@@ -62,25 +97,4 @@ export class AppComponent implements OnInit {
     return headers;
   }
 
-  register() {
-    this.msg.requestToken.subscribe({
-        next: (token) => {
-
-          this.http.post('http://localhost:8085/api/fcm/registration',
-            {
-              token: token,
-            },
-            {
-              headers: this.headers()
-            }
-          ).subscribe(() => {
-          });
-
-        },
-        error: error => {
-          console.log(error);
-        }
-      }
-    );
-  }
 }
